@@ -2,7 +2,7 @@ mqtt:
   broker: "mqtt.hsl.fi"
   port: 1883
   topics:
-    - "/hfp/v2/journey/ongoing/vp/+/+/+/+/+/+/+/+/+/+/+/+/+/+"
+    - "/hfp/v2/journey/ongoing/vp/metro/#"
   client_id: "transitgraph_client"
   keepalive: 60
   qos: 1
