@@ -65,6 +65,21 @@ the plan was finalized, then executed top-to-bottom in Agent mode.
     this entry 100% AI.
   - Framework facts wrong: 0.
   - Owner self-rating (1-5): _<fill in>_.
+- **Phase 0 polish - bad Neo4j image tag.** `make up PHASE=1` failed with
+  `failed to resolve reference "docker.io/library/neo4j:5.24.0-community":
+  not found`. Agent listed Docker Hub tags for the 5.24 line and confirmed
+  `5.24.0` was never released - the prior author hallucinated the tag. Real
+  tags on that line are `5.24.1` / `5.24.2` (and the floating `5.24` /
+  `5-community`). Pinned to `5.24.2-community` for reproducibility.
+  - Prompt strategy: one-shot (verify hub tags -> propose options ->
+    approve -> apply).
+  - Got right: verified against Docker Hub instead of guessing a different
+    tag from training data.
+  - Got wrong: nothing notable.
+  - AI-authored vs hand-edited LOC (pre-commit): docker-compose.yml +1/-1
+    (100% AI).
+  - Framework facts wrong by prior agent: 1 (invented `5.24.0-community`).
+  - Owner self-rating (1-5): _<fill in>_.
 
 **KPI checklist:**
 
