@@ -109,7 +109,12 @@ AI-agent KPIs:
 
 **Carry-forward to next phase:**
 
-- _(fill in)_
+- Always verify third-party version pins (Docker image tags, PyPI package
+  versions, Kafka client lines, etc.) against the actual registry before
+  committing. Two factual errors in Phase 0 baseline came from agents
+  picking plausible-but-nonexistent version strings from training data
+  (`neo4j:5.24.0-community` was hallucinated; the missing `--env-file`
+  was a Compose-rule misremember).
 
 ---
 
