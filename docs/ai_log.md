@@ -46,6 +46,25 @@ the plan was finalized, then executed top-to-bottom in Agent mode.
     AGENTS.md 7/7 (100% AI), this entry 100% AI.
   - Framework facts wrong: 0.
   - Owner self-rating (1-5): _<fill in>_.
+- **Phase 0 polish - `make config` + PHASE-default bug fix.** Owner asked to
+  add a `make config` target so manual compose sanity checks don't require
+  typing `--env-file .env`. Agent added the target (plus `.PHONY` and help
+  entry) mirroring `up` / `down`. Smoke test with bare `make config`
+  (default `PHASE=0`) surfaced a pre-existing bug: an inline comment on
+  `PHASE  ?= 0` was leaking trailing whitespace into `$(PHASE)`, so
+  `[ -f deploy/phase$(PHASE)/... ]` tokenized into too many shell args and
+  failed with `binary operator expected`. Fixed by moving the comment to
+  its own line above the assignment. `make up` / `make down` were silently
+  broken in the same way whenever called without `PHASE=N` on the CLI.
+  - Prompt strategy: one-shot (apply -> verify), promoted to iterative
+    when the masked bug surfaced.
+  - Got right: noticed and fixed the masked bug instead of treating it as
+    out-of-scope; minimum-surgical change.
+  - Got wrong: nothing notable in this task.
+  - AI-authored vs hand-edited LOC (pre-commit): Makefile +10/-1 (100% AI),
+    this entry 100% AI.
+  - Framework facts wrong: 0.
+  - Owner self-rating (1-5): _<fill in>_.
 
 **KPI checklist:**
 

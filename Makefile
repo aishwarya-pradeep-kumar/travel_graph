@@ -1,9 +1,11 @@
 .PHONY: help install install-phase1 install-phase2 install-phase3 install-phase4 install-phase5 \
-        lint format test test-int up down ingest clean
+        lint format test test-int up down config ingest clean
 
 PYTHON ?= python3
 PIP    ?= $(PYTHON) -m pip
-PHASE  ?= 0  # used by `make up` to pick the right docker-compose stack
+# Default phase for `make up` / `make down` / `make config`. Override on CLI:
+#   make up PHASE=1
+PHASE  ?= 0
 
 help:
 	@echo "TransitGraph - Make targets"
@@ -22,6 +24,7 @@ help:
 	@echo ""
 	@echo "  up PHASE=N         Bring up the docker-compose stack for phase N."
 	@echo "  down PHASE=N       Tear down phase N's stack."
+	@echo "  config PHASE=N     Render phase N's resolved compose config (sanity check)."
 	@echo "  ingest             Run the current phase's ingest entrypoint."
 	@echo "  clean              Remove caches and build artifacts."
 
@@ -84,6 +87,13 @@ up:
 down:
 	@if [ -f deploy/phase$(PHASE)/docker-compose.yml ]; then \
 	    docker compose --env-file .env -f deploy/phase$(PHASE)/docker-compose.yml down -v; \
+	else \
+	    echo "No docker-compose for phase $(PHASE) yet. Nothing to do."; \
+	fi
+
+config:
+	@if [ -f deploy/phase$(PHASE)/docker-compose.yml ]; then \
+	    docker compose --env-file .env -f deploy/phase$(PHASE)/docker-compose.yml config; \
 	else \
 	    echo "No docker-compose for phase $(PHASE) yet. Nothing to do."; \
 	fi
