@@ -120,9 +120,24 @@ AI-agent KPIs:
 
 ## Phase 1 - Tiny E2E (MQTT direct to Neo4j)
 
-**Plan:** _(see [`phase1_plan.md`](phase1_plan.md) once written)_
+**Plan:** Per [`phase1_plan.md`](phase1_plan.md). Six numbered steps, each its
+own commit and ideally its own AI prompt batch:
 
-**Prompt strategy:** _(decide: one-shot / iterative / plan-then-build)_
+1. compose + Neo4j up (smoke test - compose file already on disk).
+2. Pydantic v2 `VehiclePosition` model + parser tests.
+3. Neo4j writer + integration test (writes one sample, queries it back).
+4. MQTT subscriber wired to writer (TLS, reconnect, callback hand-off).
+5. CLI entrypoint (`transitgraph/cli/run_phase1.py`) + smoke test.
+6. KPI capture (S3 pipeline lag, U1 Cypher p95) + canonical query
+   `queries/avg_delay_last_15m.cypher`.
+
+Open questions from `phase1_plan.md` are resolved by current `.env`:
+TLS=true (port 8883), `ROUTE_FILTER=550,4,9`, `NEO4J_PASSWORD=changeme`
+(auth on, password from env, not disabled), no `DelaySample` retention in
+Phase 1 (acceptable for the few-hour test windows; revisit in Phase 5).
+
+**Prompt strategy:** plan-then-build (same as Phase 0). Each step gets its
+own plan-mode pass before any code lands.
 
 **Tasks:**
 
