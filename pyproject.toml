@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transitgraph"
+version = "0.1.0"
+description = "Real-time route-delay analytics on the Helsinki Digitransit MQTT feed, modeled as a streaming graph."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "TransitGraph" }]
+
+# Phase 0 ships no runtime application code.
+# Each phase grows this list; see optional-dependencies below.
+dependencies = [
+    "pydantic>=2.5",
+    "pydantic-settings>=2.1",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+# Phase 1: tiny end-to-end MQTT -> Neo4j
+phase1 = [
+    "paho-mqtt>=2.0,<3",
+    "neo4j>=5.14,<6",
+]
+
+# Phase 2: Kafka decoupling
+phase2 = [
+    "transitgraph[phase1]",
+    "confluent-kafka>=2.3,<3",
+]
+
+# Phase 3: PyFlink windowed aggregates
+phase3 = [
+    "transitgraph[phase2]",
+    "apache-flink>=1.18,<2",
+]
+
+# Phase 4: FastAPI + Streamlit
+phase4 = [
+    "transitgraph[phase3]",
+    "fastapi>=0.110,<1",
+    "uvicorn[standard]>=0.27,<1",
+    "httpx>=0.26",
+    "streamlit>=1.31",
+    "pandas>=2.1",
+]
+
+# Phase 5: GTFS validation, observability
+phase5 = [
+    "transitgraph[phase4]",
+    "prometheus-client>=0.19",
+    "gtfs-kit>=10.0",
+]
+
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "pre-commit>=3.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["transitgraph*"]
+exclude = ["archive*", "tests*", "docs*"]
+
+# ----- ruff -----
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["archive"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ----- pytest -----
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "integration: tests that need a live service (Neo4j, Kafka, etc.). Skipped by default in CI.",
+    "slow: tests that take more than ~1s.",
+]
+asyncio_mode = "auto"
