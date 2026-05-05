@@ -201,6 +201,64 @@ verification command afterwards).
     +5/-2 (100% AI), this entry 100% AI.
   - Framework facts wrong by agent: 1 (paho-mqtt `int(reason_code)`).
   - Owner self-rating (1-5): _<fill in>_.
+- **Step 2: Pydantic VP model + parser + tests.** Created
+  `transitgraph/models/vehicle_position.py` with `VehiclePosition`
+  (Pydantic v2, 8 required fields + 4 nullable per the spike-corrected
+  field list), `VPMessage` (top-level `{"VP": {...}}` wrapper),
+  `VPParseError(ValueError)`, and a tolerant `parse_vp(raw)` accepting
+  bytes/str/dict. Tests live under `tests/models/test_vehicle_position.py`
+  using captured payloads in `tests/fixtures/{vp_bus,vp_metro_minimal}.json`
+  loaded via `tests/conftest.py`. 7/7 pass; ruff clean.
+  - **Detours hit**:
+    1. Editable install was done before `transitgraph/` package
+       directory existed -> first `pytest` run got
+       `ModuleNotFoundError: No module named 'transitgraph'`. Fixed by
+       `uv pip install --reinstall-package transitgraph -e .` so
+       setuptools relinked the package.
+    2. ruff's `UP017` flagged `datetime.timezone.utc` -> swapped to
+       `datetime.UTC` (3.11+).
+    3. `.gitignore`'s broad `*.json` rule (intended for data dumps)
+       silently swallowed the test fixtures. The first commit (a4d5540)
+       *passed tests locally* but would have broken on a fresh clone.
+       Caught by `git status` showing `tests/fixtures/` still
+       untracked. Followup commit b86cfe5 added
+       `!tests/fixtures/*.json` and the JSON files.
+    4. Added a small extra test (`test_invalid_json_raises_typed_error`)
+       to cover the `json.JSONDecodeError` branch of `parse_vp` since
+       `phase1_plan.md` step 2's "Bad timestamp raises a typed error"
+       implied the wrapping should be uniform across all parse failures.
+  - **Design notes**:
+    - `model_config = ConfigDict(extra="ignore")` - the wire payload
+      has many fields we don't model yet (`spd`, `hdg`, `acc`, `odo`,
+      `drst`, `tsi`, `jrn`, `line`, `loc`, `occu`, `seq`, ...). They
+      pass through harmlessly. Step 4's subscriber and step 5's GTFS
+      validation will widen the model as needed.
+    - `parse_vp(raw)` accepts `bytes` directly so the eventual
+      `on_message(client, userdata, msg)` callback can pass
+      `msg.payload` straight in.
+    - All Pydantic exceptions are wrapped in `VPParseError`. Callers
+      never need to import Pydantic to handle failure paths.
+  - Prompt strategy: plan-then-build. Wrote a structured proposal
+    (file layout + field list + test cases + commit shape) and got
+    approval before any code, per AGENTS.md.
+  - Got right: corrected the step-2 plan first (commit e7730fc) so the
+    code matched a corrected spec; used real captured fixtures rather
+    than hand-fabricated JSON; ran ruff + pytest before each commit.
+  - Got wrong: forgot to re-install the editable package after creating
+    `transitgraph/` (one extra step needed); didn't proactively check
+    `.gitignore` for the new fixture path before committing.
+  - AI-authored vs hand-edited LOC (pre-commit):
+    `transitgraph/__init__.py` +3/-0 (100% AI),
+    `transitgraph/models/__init__.py` +9/-0 (100% AI),
+    `transitgraph/models/vehicle_position.py` +91/-0 (100% AI),
+    `tests/conftest.py` +27/-0 (100% AI),
+    `tests/models/test_vehicle_position.py` +69/-0 (100% AI),
+    `tests/fixtures/*.json` +52/-0 (data, not code),
+    `.gitignore` +2/-0 (100% AI),
+    `docs/phase1_plan.md` +16/-4 (100% AI),
+    this entry 100% AI.
+  - Framework facts wrong by agent: 0.
+  - Owner self-rating (1-5): _<fill in>_.
 
 **KPI checklist:**
 
