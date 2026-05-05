@@ -109,39 +109,98 @@ AI-agent KPIs:
 
 **Carry-forward to next phase:**
 
-- Always verify third-party version pins (Docker image tags, PyPI package
-  versions, Kafka client lines, etc.) against the actual registry before
-  committing. Two factual errors in Phase 0 baseline came from agents
-  picking plausible-but-nonexistent version strings from training data
-  (`neo4j:5.24.0-community` was hallucinated; the missing `--env-file`
-  was a Compose-rule misremember).
+- _(fill in)_
 
 ---
 
 ## Phase 1 - Tiny E2E (MQTT direct to Neo4j)
 
-**Plan:** Per [`phase1_plan.md`](phase1_plan.md). Six numbered steps, each its
-own commit and ideally its own AI prompt batch:
+**Plan:** see [`phase1_plan.md`](phase1_plan.md). Pre-step before step 2:
+read one real HSL `vp` payload so the Pydantic model is written from
+observed data, not from docs.
 
-1. compose + Neo4j up (smoke test - compose file already on disk).
-2. Pydantic v2 `VehiclePosition` model + parser tests.
-3. Neo4j writer + integration test (writes one sample, queries it back).
-4. MQTT subscriber wired to writer (TLS, reconnect, callback hand-off).
-5. CLI entrypoint (`transitgraph/cli/run_phase1.py`) + smoke test.
-6. KPI capture (S3 pipeline lag, U1 Cypher p95) + canonical query
-   `queries/avg_delay_last_15m.cypher`.
-
-Open questions from `phase1_plan.md` are resolved by current `.env`:
-TLS=true (port 8883), `ROUTE_FILTER=550,4,9`, `NEO4J_PASSWORD=changeme`
-(auth on, password from env, not disabled), no `DelaySample` retention in
-Phase 1 (acceptable for the few-hour test windows; revisit in Phase 5).
-
-**Prompt strategy:** plan-then-build (same as Phase 0). Each step gets its
-own plan-mode pass before any code lands.
+**Prompt strategy:** iterative (small approved steps, each with a
+verification command afterwards).
 
 **Tasks:**
 
-- _(fill in)_
+- **MQTT exploration spike + Python 3.11 venv + truststore declaration.**
+  Goal: see one real HSL `vp` payload before writing the Pydantic VP
+  model in step 2. Outcome: 4 real bus messages printed, payload shape
+  captured, several Phase-0-baseline assumptions corrected.
+  - **Setup work**:
+    - `uv` installed via `pip install --user uv` (Homebrew had an
+      unrelated permissions issue; `uv` sidestepped that and gave us a
+      managed Python 3.11.15 in `.venv` in one shot).
+    - `make install-phase1` previously failed because there was no venv
+      and system Python is 3.9.6 (project requires `>=3.11`). After
+      `uv venv --python 3.11`, `uv pip install -e ".[phase1,dev]"`
+      installed cleanly.
+    - Added `.venv/` to `.gitignore` (only `venv/`/`env/`/`ENV/` were
+      listed before).
+    - Added `truststore>=0.10,<1` to `pyproject.toml[phase1]` for the
+      production-shaped subscriber; kept the declaration even though it
+      isn't usable for *this* spike (see below).
+  - **Detours hit, ordered**:
+    1. Corp SSL-inspection proxy (Zscaler/Netskope-style) re-signs TLS
+       chains with an internal root CA. Python's `certifi` doesn't know
+       it -> `SSLCertVerificationError: self signed certificate in
+       certificate chain` on `mqtt.hsl.fi:8883`.
+    2. Tried `truststore.inject_into_ssl()` to use macOS Keychain.
+       Hit `ssl.SSLError: 'One or more parameters passed to a function
+       were not valid'` from `Security.SecTrustCreateWithCertificates`
+       inside `truststore/_macos.py`. Likely a known-ish wart between
+       `truststore` and `python-build-standalone` builds.
+    3. Fell back to plain MQTT (port 1883). Connection succeeded; corp
+       proxy lets outbound 1883 through to mqtt.hsl.fi.
+    4. paho-mqtt 2.x V2 callback API: `reason_code` is a
+       `paho.mqtt.reasoncodes.ReasonCode` instance and does NOT
+       implement `__int__`. Used `reason_code.is_failure` instead of
+       `int(reason_code) != 0`. Agent factual error.
+    5. First subscription used `.env`'s
+       `MQTT_TOPIC_FILTER=/hfp/v2/journey/ongoing/vp/+/+/+/550/#`, which
+       got zero messages. Cause: the `<route>` segment in HSL HFP topics
+       is an *internal* route id (bus 550 is `2550`, metro M1 is `31M1`,
+       train K is `3001K`), not the user-facing line. Broadened to
+       `vp/bus/#` and confirmed messages flow.
+  - **Payload findings (informs step 2 Pydantic model)**:
+    - Top-level wrapper key is `VP`.
+    - `tripId` from `phase1_plan.md` step 2's required-fields list does
+      NOT exist in the payload. Trip identity comes from the
+      `(route, dir, oday, start)` tuple.
+    - `desi` (line as displayed: "550", "M1", "K") is what the analyst
+      means by "route", not the topic-segment `route`. step 2's field
+      list should add `desi` and treat `route` as the internal id.
+    - `acc`, `dl`, `odo`, `drst` can be `null` (esp. metro `loc:MAN`).
+      Step 2's tolerant parser is the right call.
+    - `dl` is in seconds, negative = early. Confirmed.
+    - Extra useful fields: `tsi` (unix timestamp), `loc` (`GPS`/`MAN`/
+      `DR` data-quality flag), `seq`, `occu`.
+  - **Cosmetic spike bug (not fixed)**: `client.disconnect()` doesn't
+    drain the in-flight read buffer, so we sometimes print
+    `message N+1/N` once before exit. Real subscriber will use a guard.
+  - **Carry-forward to step 4**: production-shaped subscriber needs a
+    real TLS path. Either (a) extract corp CA from System Keychain to
+    a gitignored PEM file and `tls_set(ca_certs=...)`, or (b) revisit
+    `truststore` if upstream fixes the macOS Security-framework wart.
+    Plain MQTT on 1883 is fine for the spike but not acceptable in
+    production-shaped code.
+  - Prompt strategy: iterative. Each detour was surfaced as a
+    multiple-choice fork rather than silently chosen.
+  - Got right: verified library/pkg metadata against PyPI before
+    pinning (`truststore` Python requirement, `uv` install path) per
+    Phase 0 carry-forward; surfaced AGENTS.md "ask before non-trivial"
+    forks (TLS strategy, venv tooling, brew vs uv).
+  - Got wrong: assumed paho-mqtt 2.x `reason_code` supports `int()`;
+    didn't anticipate the HSL route-id quirk before subscribing (it's
+    documented in `phase1_plan.md` open question 2 vaguely, but not
+    explicitly).
+  - AI-authored vs hand-edited LOC (pre-commit): `pyproject.toml`
+    +5/-0 (100% AI), `scripts/mqtt_peek.py` +~115 (100% AI),
+    `.gitignore` +1 (100% AI), `.env` +5/-2 (100% AI), `.env.example`
+    +5/-2 (100% AI), this entry 100% AI.
+  - Framework facts wrong by agent: 1 (paho-mqtt `int(reason_code)`).
+  - Owner self-rating (1-5): _<fill in>_.
 
 **KPI checklist:**
 

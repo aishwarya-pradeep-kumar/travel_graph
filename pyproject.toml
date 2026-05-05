@@ -24,6 +24,9 @@ dependencies = [
 phase1 = [
     "paho-mqtt>=2.0,<3",
     "neo4j>=5.14,<6",
+    # Use the OS-native trust store for TLS (corp MITM proxies, Keychain, etc.)
+    # so paho-mqtt and the neo4j driver don't need a custom CA bundle baked in.
+    "truststore>=0.10,<1",
 ]
 
 # Phase 2: Kafka decoupling
