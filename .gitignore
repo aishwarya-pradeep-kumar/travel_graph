@@ -50,6 +50,8 @@ logs/
 data/
 *.csv
 *.json
+# ...but keep test fixtures (small captured payloads, not data dumps).
+!tests/fixtures/*.json
 
 # Jupyter
 .ipynb_checkpoints/

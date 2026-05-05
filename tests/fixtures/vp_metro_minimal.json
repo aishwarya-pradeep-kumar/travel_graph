@@ -1,0 +1,26 @@
+{
+  "VP": {
+    "desi": "M1",
+    "dir": "2",
+    "oper": 50,
+    "veh": 125,
+    "tst": "2026-05-05T14:03:01.182Z",
+    "tsi": 1777989781,
+    "spd": 18.24,
+    "hdg": 319,
+    "lat": 60.14507775,
+    "long": 24.65929545,
+    "acc": null,
+    "dl": null,
+    "odo": null,
+    "drst": null,
+    "oday": "2026-05-05",
+    "line": "32",
+    "start": "16:15",
+    "loc": "MAN",
+    "stop": null,
+    "route": "31M1",
+    "occu": 0,
+    "seq": 1
+  }
+}
