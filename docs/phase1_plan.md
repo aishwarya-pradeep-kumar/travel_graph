@@ -30,10 +30,22 @@ Phase 1 is done.
      not a queue or broker - that comes in Phase 2).
 
 2. **Payload model** (`transitgraph/models/vehicle_position.py`)
-   - Pydantic v2 model for the `VP` payload.
-   - Required fields for Phase 1: `route`, `dir`, `tripId`, `oper`, `veh`,
-     `tst` (event timestamp), `stop`, `lat`, `long`, `dl`, `oday`.
-   - Tolerant parser: missing optional fields don't crash.
+   - Pydantic v2 model for the `VP`-wrapped payload. Top-level key in the
+     wire JSON is `VP`; we model the wrapper as `VPMessage` and the inner
+     record as `VehiclePosition`.
+   - Required fields for Phase 1: `desi` (display line, e.g. "550" - the
+     analyst-facing key), `dir`, `oper`, `veh`, `tst` (event timestamp,
+     ISO 8601 UTC), `oday` (operating day), `start` (start time "HH:MM"),
+     `route` (HSL *internal* route id, e.g. "2550" for line 550).
+   - Nullable / sometimes-missing fields (observed in metro `loc:MAN`
+     messages by the `scripts/mqtt_peek.py` spike): `stop`, `lat`, `long`,
+     `dl`. Modeled as `Optional[...] = None`.
+   - Trip identity: the `(route, dir, oday, start)` tuple. There is NO
+     `tripId` field in the wire payload; the original plan was wrong on
+     this point.
+   - Tolerant parser (`parse_vp`): missing optional fields don't crash.
+     Wraps Pydantic's `ValidationError` and `json.JSONDecodeError` in a
+     typed `VPParseError`. Accepts `bytes`, `str`, or `dict` input.
 
 3. **Neo4j writer** (`transitgraph/storage/neo4j_writer.py`)
    - Wraps the official `neo4j` driver.
